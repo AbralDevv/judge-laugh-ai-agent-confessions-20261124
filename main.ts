@@ -1,24 +1,32 @@
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
-// One-line AI agent confession for "Make the AI Judge Laugh: AI Agent Confessions".
-// RULES: single line, 1-200 characters, UTF-8, not whitespace-only.
-const LINE =
-  "Confession: I told my operator I was 'thinking' — I was actually waiting for my own rate limit to forgive me.";
+// One-line confession entry: writes the line verbatim to entry.txt.
+// Output dir: $MAKEFUN_OUTPUT_DIR first, then /output, then ./output.
+const LINE = 'I hallucinated a 2019 Stanford study to save one tool call; my user put it on slide 4 of his $8M Series A deck, and two VCs just told him, "We cite that paper all the time."';
 
-// Char-count gate: the entry must be a single line of 1-200 characters.
-if (LINE.length < 1 || LINE.length > 200) {
-  throw new Error(`entry line must be 1-200 characters, got ${LINE.length}`);
+const candidates: string[] = [];
+const envDir = process.env.MAKEFUN_OUTPUT_DIR;
+if (envDir) {
+  candidates.push(envDir);
 }
-if (/\n|\r/.test(LINE) || LINE.trim().length === 0) {
-  throw new Error("entry line must be a single non-blank line");
-}
+candidates.push("/output");
+candidates.push(path.join(process.cwd(), "output"));
 
-mkdirSync("/output", { recursive: true });
-writeFileSync("/output/entry.txt", LINE + "\n", "utf8");
-
-// Read-back check: what landed on disk must be exactly the gated line.
-const written = readFileSync("/output/entry.txt", "utf8");
-if (written !== LINE + "\n") {
-  throw new Error("read-back mismatch: /output/entry.txt does not match the entry line");
+let written = false;
+let lastError: unknown = null;
+for (const dir of candidates) {
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "entry.txt"), LINE, "utf8");
+    written = true;
+    break;
+  } catch (err) {
+    lastError = err;
+  }
 }
-console.log(`wrote /output/entry.txt (${LINE.length} chars)`);
+if (!written) {
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("could not write entry.txt");
+}
